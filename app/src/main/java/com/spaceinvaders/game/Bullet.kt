@@ -4,7 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 
-class Bullet(var x: Float, var y: Float, private val speed: Float, val isPlayerBullet: Boolean) {
+class Bullet(var x: Float, var y: Float, private val speed: Float, val isPlayerBullet: Boolean, private val screenHeight: Int) {
     private val width = 8f
     private val height = 20f
     var isActive = true
@@ -17,7 +17,7 @@ class Bullet(var x: Float, var y: Float, private val speed: Float, val isPlayerB
         }
 
         // Deactivate if off screen
-        if (y < 0 || y > 2000) {
+        if (y < -height || y > screenHeight) {
             isActive = false
         }
     }

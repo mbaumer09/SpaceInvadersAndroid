@@ -4,10 +4,12 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.random.Random
 
 class GameView(context: Context) : SurfaceView(context), Runnable {
@@ -23,8 +25,8 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
 
     private lateinit var player: Player
     private val enemies = mutableListOf<Enemy>()
-    private val playerBullets = mutableListOf<Bullet>()
-    private val enemyBullets = mutableListOf<Bullet>()
+    private val playerBullets = CopyOnWriteArrayList<Bullet>()
+    private val enemyBullets = CopyOnWriteArrayList<Bullet>()
 
     private var score = 0
     private var level = 1
@@ -37,6 +39,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
 
     private var touchX = 0f
     private var isShooting = false
+    private var isInitialized = false
 
     enum class GameState {
         PLAYING,
@@ -53,7 +56,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
     }
 
     private fun update() {
-        if (gameState != GameState.PLAYING) return
+        if (!isInitialized || gameState != GameState.PLAYING) return
 
         // Update player bullets
         playerBullets.forEach { it.update() }
@@ -71,7 +74,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
             val aliveEnemies = enemies.filter { it.isAlive }
             if (aliveEnemies.isNotEmpty()) {
                 val shooter = aliveEnemies.random()
-                enemyBullets.add(Bullet(shooter.x + 30, shooter.y + 50, 12f, false))
+                enemyBullets.add(Bullet(shooter.x + 30, shooter.y + 50, 12f, false, screenHeight))
             }
         }
 
@@ -156,22 +159,21 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
     }
 
     private fun draw() {
-        if (surfaceHolder.surface.isValid) {
-            canvas = surfaceHolder.lockCanvas()
+        if (!isInitialized || !surfaceHolder.surface.isValid) return
+        canvas = surfaceHolder.lockCanvas() ?: return
 
-            // Clear screen
-            canvas.drawColor(Color.BLACK)
+        // Clear screen
+        canvas.drawColor(Color.BLACK)
 
-            paint.color = Color.GREEN
+        paint.color = Color.GREEN
 
-            when (gameState) {
-                GameState.PLAYING -> drawGame()
-                GameState.GAME_OVER -> drawGameOver()
-                GameState.WIN -> drawWin()
-            }
-
-            surfaceHolder.unlockCanvasAndPost(canvas)
+        when (gameState) {
+            GameState.PLAYING -> drawGame()
+            GameState.GAME_OVER -> drawGameOver()
+            GameState.WIN -> drawWin()
         }
+
+        surfaceHolder.unlockCanvasAndPost(canvas)
     }
 
     private fun drawGame() {
@@ -195,6 +197,8 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
         canvas.drawText("Score: $score", 30f, 60f, paint)
         canvas.drawText("Lives: ${player.lives}", 30f, 110f, paint)
         canvas.drawText("Level: $level", 30f, 160f, paint)
+        canvas.drawText("Bullets: ${playerBullets.size}", 30f, 210f, paint)
+        canvas.drawText("Enemy bullets: ${enemyBullets.size}", 30f, 260f, paint)
     }
 
     private fun drawGameOver() {
@@ -254,6 +258,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
         // Initialize game
         player = Player(screenWidth / 2f - 40f, screenHeight - 150f, screenWidth)
         createEnemies()
+        isInitialized = true
     }
 
     private fun createEnemies() {
@@ -271,6 +276,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!isInitialized) return true
         touchX = event.x
 
         when (event.action) {
@@ -286,7 +292,7 @@ class GameView(context: Context) : SurfaceView(context), Runnable {
                     // Shoot
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - lastShotTime > shootCooldown) {
-                        playerBullets.add(Bullet(player.getCenterX() - 4, player.y, 20f, true))
+                        playerBullets.add(Bullet(player.getCenterX() - 4, player.y, 20f, true, screenHeight))
                         lastShotTime = currentTime
                     }
                 } else {
